@@ -1,0 +1,134 @@
+<!DOCTYPE html>
+<html lang="es">
+  <head>
+    <meta charset="UTF-8">
+    <title>Test Reacciones Preact + WebSocket</title>
+    <script src="https://cdn.socket.io/4.7.5/socket.io.min.js"></script>
+    <style>
+      .reaction-container {
+        display: inline-block;
+        position: relative;
+      }
+      .floating-icons {
+        position: fixed;
+        left: 90%;
+        bottom: 0;
+        pointer-events: none;
+      }
+      .floating-icon {
+        position: absolute;
+        font-size: 2rem;
+        opacity: 0;
+        animation: float 2s ease-out forwards;
+      }
+      @keyframes float {
+        0% {
+          transform: translateY(0) scale(1);
+          opacity: 1;
+        }
+        80% {
+          opacity: 1;
+          transform: translateY(-120px) scale(1.2) rotate(-15deg);
+        }
+        100% {
+          transform: translateY(-150px) scale(0.8) rotate(15deg);
+          opacity: 0;
+        }
+      }
+      .reaction-buttons {
+        display: flex;
+        gap: 0.5rem;
+        margin-bottom: 1rem;
+      }
+      .reaction-btn {
+        transition: transform 0.15s cubic-bezier(.2,1.7,.41,.91), box-shadow 0.15s;
+      }
+      .reaction-btn.active {
+        transform: scale(1.25);
+        box-shadow: 0 4px 20px 0 rgba(0,0,0,0.2);
+        z-index: 1;
+      }
+    </style>
+  </head>
+  <body>
+    <div id="app"></div>
+    <script type="module">
+      import { h, render } from 'https://esm.sh/preact';
+      import { useRef, useEffect } from 'https://esm.sh/preact/hooks';
+      import htm from 'https://esm.sh/htm';
+
+      const html = htm.bind(h);
+
+      // Cambia la URL si usas otro dominio
+      const socket = io("https://3000-firebase-typescript-startergit-1748248212533.cluster-ombtxv25tbd6yrjpp3lukp6zhc.cloudworkstations.dev");
+
+      function ReactionButtons() {
+        const iconsRef = useRef(null);
+        const btnRefs = [useRef(null), useRef(null), useRef(null), useRef(null)];
+
+        // Recibe reacciones de otros (o tú mismo)
+        useEffect(() => {
+          socket.on('newReaction', ({ emoji }) => {
+            animateFloatingIcon(emoji);
+          });
+          return () => socket.off('newReaction');
+        }, []);
+
+        const animateFloatingIcon = (emoji) => {
+          const container = iconsRef.current;
+          if (!container) return;
+          const span = document.createElement('span');
+          span.className = 'floating-icon';
+          span.innerText = emoji;
+          span.style.left = `${Math.random() * 60 - 30}px`;
+          container.appendChild(span);
+          span.addEventListener('animationend', () => span.remove());
+        };
+
+        const handleReaction = (emoji, index) => {
+          const btn = btnRefs[index].current;
+          if (btn) {
+            btn.classList.add('active');
+            setTimeout(() => btn.classList.remove('active'), 180);
+          }
+          // Enviar reacción al servidor
+          socket.emit('sendReaction', { emoji });
+        };
+
+        return html`
+          <div class="reaction-container">
+            <div class="reaction-buttons">
+              <button
+                type="button"
+                class="reaction-btn"
+                ref=${btnRefs[0]}
+                onClick=${() => handleReaction('👍', 0)}
+              >👍</button>
+              <button
+                type="button"
+                class="reaction-btn"
+                ref=${btnRefs[1]}
+                onClick=${() => handleReaction('❤️', 1)}
+              >❤️</button>
+              <button
+                type="button"
+                class="reaction-btn"
+                ref=${btnRefs[2]}
+                onClick=${() => handleReaction('😂', 2)}
+              >😂</button>
+              <button
+                type="button"
+                class="reaction-btn"
+                ref=${btnRefs[3]}
+                onClick=${() => handleReaction('😮', 3)}
+              >😮</button>
+            </div>
+            <div class="floating-icons" ref=${iconsRef}></div>
+          </div>
+        `;
+      }
+
+      render(html`<${ReactionButtons} />`, document.getElementById('app'));
+    </script>
+  </body>
+</html>
